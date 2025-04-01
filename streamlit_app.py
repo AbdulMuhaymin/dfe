@@ -1,7 +1,6 @@
 import streamlit as st
 import tempfile
 import os
-import matplotlib.pyplot as plt
 from defect import calculate_E_formation
 
 # Streamlit page config
