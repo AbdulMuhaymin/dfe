@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import re
+import io
 import matplotlib.pyplot as plt
 
 class calculate_E_formation:
@@ -9,6 +10,7 @@ class calculate_E_formation:
         self.fileout = filein + ".out"
         self.debug = True#False
 
+        self.title = ""
         self.VBM = 0.0
         self.band_gap = 0.0
         self.host_supercell_energy = 0.0
@@ -21,6 +23,8 @@ class calculate_E_formation:
         self.chem_potentials = {} #dictionary type
         self.supercell_energy_list = []
         self.correction_terms_list = []
+
+        self.analysis = ""
 
         # Read the input data
         self.read_data()
@@ -50,15 +54,19 @@ class calculate_E_formation:
         self.CTL_count = int(len(self.CTL_list)/2)
         self.CTL_array = np.array(self.CTL_list).reshape(self.CTL_count,2)
 
-
-
         # Plot the formation energy
         self.fig = self.plot_data()
 
     def read_data(self):
         with open(self.filein, 'r') as data_file:
             for line in data_file:
-                if "&VBM" in line:
+                if "&Metadata" in line:
+                    tmp_line =  data_file.readline()
+                    self.title = str(tmp_line)
+                    if self.debug == True:
+                        print(f"Title=\"{self.title}\" is read.")
+                
+                elif "&VBM" in line:
                     tmp_line =  data_file.readline()
                     self.VBM = float(tmp_line)
                     if self.debug == True:
@@ -223,9 +231,13 @@ class calculate_E_formation:
             minimum_E = np.sort(tmp_array)[0]
             self.formation_energy_data.append(minimum_E)
 
-        with open(self.fileout, 'w') as fout:
-            for i in range(0,int(self.band_gap/self.energy_step)):
-                fout.write('{0:<15.7f} {1:<15.7f} \n'.format(self.fermi_level[i], self.formation_energy_data[i]))
+        text_output = io.StringIO()
+        for i in range(0, int(self.band_gap / self.energy_step)):
+            text_output.write('{0:<15.7f} {1:<15.7f} \n'.format(self.fermi_level[i], self.formation_energy_data[i]))
+        self.text_content = text_output.getvalue()
+        # with open(self.fileout, 'w') as fout:
+        #     for i in range(0,int(self.band_gap/self.energy_step)):
+        #         fout.write('{0:<15.7f} {1:<15.7f} \n'.format(self.fermi_level[i], self.formation_energy_data[i]))
 
     def find_CTL(self):
         #find the charge transition levels where the slope changes
@@ -246,8 +258,9 @@ class calculate_E_formation:
             if abs(slope_diff) < slope_threshold:
                 continue
             else:
-                print("CTL from " + str(slope_to_compare) + " to " + str (slope_to_compare - 1) + " = " + \
-                    str((self.fermi_level[i-1] + self.fermi_level[i])/2.0) + "\n")
+                self.analysis += ("CTL from " + str(slope_to_compare) + " to " + str (slope_to_compare - 1) + " = " + \
+                    str((self.fermi_level[i-1] + self.fermi_level[i])/2.0) )
+                self.analysis += "\n \n"
                 CTL_point = self.fermi_level[i-1] + delta_x/2.0
                 CTL.append(CTL_point)
                 CTL_energy = self.formation_energy_data[i-1]+slope*delta_x/2.0
@@ -285,7 +298,7 @@ class calculate_E_formation:
 
         axes.set_xlabel('Fermi level (eV)', fontsize = 18)
         axes.set_ylabel('Defect formation energy (eV)', fontsize = 18)
-        #axes.set_title('Co-vacancy in ZnS, relaxed', fontsize = 18)
+        axes.set_title(self.title, fontsize = 18)
 
         x_CTL_data = self.CTL_array[:,0]
         y_CTL_data = self.CTL_array[:,1]
@@ -295,3 +308,8 @@ class calculate_E_formation:
         plt.legend(prop={'size': 18})
         # plt.show(fig)
         return fig
+
+    def get_analysis(self):
+        return self.analysis, self.text_content
+    def get_output_fname(self):
+        return self.title.replace(", ", "_")

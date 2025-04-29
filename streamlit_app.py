@@ -8,53 +8,63 @@ st.set_page_config(layout="wide")
 
 # Title
 st.title("Defect Formation Energy Viewer")
+isCalculated = False
 
 # Horizontal layout: left - editor, right - plot
-col1, col2 = st.columns([1, 1.5])
+col1, col2, col3 = st.columns([1, 1.5, 1])
 
 with col1:
     st.subheader("📄 Input File Editor")
-    default_text = """&VBM        # (eV)
-7.1666
+    default_text = """&Metadata
+Co-Vac in MgO, relaxed, Mg-rich
 
-&band_gap        # with respect to the VBM (eV)
-2.0091
+&VBM        # (eV)
+8.3619
+
+&band_gap      # with respect to the VBM (eV)
+4.47
 
 &Host_type
-Zn S
+Mg O
 
-&Vacancies        # For substitutional impurity, the substituted atom too
-Zn S
+&Vacancies
+Mg O
 
 &Impurities
-Cu
+Co
 
 &Chemical_potentials            # (eV)
-Zn  -5446.8099906
-S   -277.5947224
-Cu  -4968.9433547
+Mg  -1478.3036971           #Mg-rich
+O   -438.112148             #O-poor
+#Mg -1483.7237              #Mg-poor
+#O -432.69214758            #O-rich
+Co  -3685.37905
 
 &Host_supercell_energy          # (Ry)
--13468.80835818
+-4507.34148788
 
-&Charge_state_range  #two integer numbers // make sure you have a right number of alignment term
--1 1
+&Charge_state_range
+-2 2
 
-&Defective_supercell_energy # charge_state(q) and energy (Ry) 
--1	-13412.38748518
-0	-13413.00734819
-1	-13413.58004343
+&Defective_supercell_energy     # (Ry)
+-2      -4667.53085681
+-1	-4668.53056447
+0	-4669.37300222
+1	-4670.09251159
+2       -4670.74789727
 
-&Correction_terms #(eV), for each charge state (e.g. -2 to 2): short-range potential energy from sxdefectalign, and E_corr (MP or LZ)
-0.110   0.21088
-0.000	0.00000
-0.450   0.21088"""
+&Correction_terms #(eV)
+0.000     0.00000
+0.000	  0.00000
+0.000     0.00000
+0.000	  0.00000
+0.000     0.00000"""
 
     user_input = st.text_area("Edit input file:", value=default_text, height=500)
     submitted = st.button("Plot Formation Energy Diagram")
 
 with col2:
-    st.subheader("📊 Formation Energy Plot")
+    st.subheader("📊 Defect Formation Energy")
     if submitted:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_input_path = os.path.join(tmpdir, "input_file.txt")
@@ -64,8 +74,22 @@ with col2:
             try:
                 # Run the defect calculation
                 defect_instance = calculate_E_formation(tmp_input_path)
+                analysis = defect_instance.get_analysis()
+                isCalculated = True
 
                 # Since calculate_E_formation already plots, we'll just reuse the last plot
                 st.pyplot(defect_instance.fig)
             except Exception as e:
                 st.error(f"Error: {e}")
+
+with col3:
+    st.subheader("📈 Analysis")
+    if isCalculated:
+        st.write(analysis[0])
+        st.markdown(":blue-badge[Download Formation Energy Data:]")
+        st.download_button(
+        data=analysis[1],
+        file_name= defect_instance.get_output_fname() + '.txt',
+        label= defect_instance.get_output_fname() + '.txt',
+        mime='text/plain'
+    )
